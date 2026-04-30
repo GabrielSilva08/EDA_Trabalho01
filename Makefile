@@ -1,48 +1,28 @@
-# ── Compilador e flags ────────────────────────────────────────
-CC      = gcc
-CFLAGS  = -std=c11 -Wall -Wextra -Wpedantic -g
+# Arquivo de entrada
+INPUT = input.txt
 
-# ── Arquivos fonte e objeto ───────────────────────────────────
-SRCS    = main.c bst.c parser.c
-OBJS    = $(SRCS:.c=.o)
+# Flags de compilação, arquivos fontes e objetos
+CFLAGS  = -std=c11 -Wall -Wextra -Wpedantic
+SRCS    = src\main.c src\bst.c src\parser.c
+OBJS    = build\main.o build\bst.o build\parser.o
+LIBS	= include
 
-# ── Nome do executável ────────────────────────────────────────
-TARGET  = bst
+# Nome do executável 
+TARGET  = program.exe
 
-# ── Arquivo de entrada padrão (usado em `make run`) ──────────
-INPUT   ?= input.txt
+# Compila e executa (build + run)
+all: build run
 
-# ══════════════════════════════════════════════════════════════
-#  Regras
-# ══════════════════════════════════════════════════════════════
+# Compilação do código
+build: build-single
+	gcc $(CFLAGS) $(OBJS) -o $(TARGET)
 
-## Alvo padrão: compila tudo
-all: $(TARGET)
+build-single: $(SRCS)
+	gcc $(CFLAGS) -c src\bst.c -I $(LIBS)  -o build\bst.o
+	gcc $(CFLAGS) -c src\parser.c -I $(LIBS) -o build\parser.o
+	gcc $(CFLAGS) -c src\main.c -I $(LIBS) -o build\main.o
 
-## Linka os objetos e gera o executável
-$(TARGET): $(OBJS)
-	$(CC) $(CFLAGS) -o $@ $^
-
-## Compila cada .c em seu respectivo .o
-%.o: %.c
-	$(CC) $(CFLAGS) -c -o $@ $<
-
-## Executa o programa com o arquivo de entrada definido em INPUT
-## Uso: make run INPUT=meu_arquivo.txt
-run: $(TARGET)
-	./$(TARGET) $(INPUT)
-
-## Remove arquivos gerados pela compilação
-clean:
-	rm -f $(OBJS) $(TARGET)
-
-## Exibe ajuda resumida
-help:
-	@echo "Alvos disponíveis:"
-	@echo "  make           Compila o projeto (padrão)"
-	@echo "  make run       Compila e executa com INPUT=<arquivo>"
-	@echo "  make clean     Remove objetos e executável"
-	@echo "  make help      Exibe esta mensagem"
-
-# ── Declara alvos que não são arquivos ───────────────────────
-.PHONY: all run clean help
+# Execução do programa
+# Uso: make run INPUT=meu_arquivo.txt
+run: bin\$(TARGET)
+	bin\$(TARGET) input\$(INPUT)
