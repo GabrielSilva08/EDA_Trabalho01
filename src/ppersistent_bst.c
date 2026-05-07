@@ -333,7 +333,7 @@ void ppbst_insert(PPersistentBST *tree, int value){
     tree->node_pool[tree->node_count++] = new_node;
 
     // Primeiro nó inserido na esturutra (raíz)
-    if (tree->current_version < 0) {
+    if (tree->current_version < 0 || tree->versions[tree->current_version] == NULL){
         new_node->is_root = 1;
         tree->live_root = new_node;
         tree->versions[tree->version_count++] = new_node;
