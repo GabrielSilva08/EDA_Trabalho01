@@ -41,7 +41,7 @@ typedef struct {
  *  right (Node*): Filho direito;
  *  value (int): Valor do nó (chave);
  *  born_version (int): Versão que o nó foi criado;
- *  is_root (int): Flag usada para especificar se o nó é raíz da árvore.
+ *  is_root (int): Flag usada para especificar se o nó é raíz da árvore;
  *  mods (Mod[2]): Vetor de modificações.
 */
 struct Node {
