@@ -12,203 +12,307 @@ O código fonte implementa persistência parcial para o caso de uma árvore bin�
 - [Estrutura do projeto](#estrutura-do-projeto)
 - [Como compilar e executar](#como-compilar-e-executar)
 - [Formato do arquivo de entrada](#formato-do-arquivo-de-entrada)
-- [Estruturas de dados](#estruturas-de-dados)
-- [Funções](#funções)
+- [Divisão dos módulos do projeto](#divisão-dos-módulos-do-projeto)
 - [Exemplo de uso](#exemplo-de-uso)
 
 ---
 
-## Linguagem e versão (atualizar)
+## Linguagem e versão
 
 | Item       | Valor                          |
-|------------|-------------------------------|
+|------------|--------------------------------|
 | Linguagem  | C                              |
 | Padrão     | C11 (`-std=c11`)               |
-| Compilador | GCC ≥ 9.0 (ou Clang ≥ 10.0)   |
+| Compilador | GCC = 13.2.0                   |
 | Build tool | GNU Make                       |
 
 ---
 
-## Estrutura do projeto (atualizar)
+## Estrutura do projeto
 
-```
-bst/
-├── main.c       # Ponto de entrada — valida argumentos e orquestra o fluxo
-├── bst.h        # Interface pública da BST (estruturas + assinaturas)
-├── bst.c        # Implementação completa da BST
-├── parser.h     # Interface do módulo de leitura de operações
-├── parser.c     # Leitura do arquivo e despacho de operações
-├── Makefile     # Automação de compilação e execução
-├── input.txt    # Arquivo de entrada de exemplo
-└── README.md    # Este arquivo
-```
-
----
-
-## Como compilar e executar (atualizar)
-
-### Compilar
-
-```bash
-gcc -c src\main.c -I include\*.h -o build\main.o
-gcc -c src\bst.c -I include\*.h -o build\bst.o
-gcc -c src\parser.c -I include\*.h -o build\parser.o
-```
-
-Isso gera os executáveis auxiliares pro programa final na pasta `build\`.
-
-```bash
-gcc build\*.o -o bin\program.exe
-```
-
-### Executar
-
-```bash
-bin\program.exe <arquivo_com_operações_na_BST.txt>
-```
-
-Exemplo com o arquivo de entrada incluído:
-
-```bash
-bin\program.exe input\input.txt
-```
-
-### Compilar e executar em um único comando (atualizar)
-
-```bash
-make run                        # usa input.txt por padrão
-make run INPUT=outro_arquivo.txt
-```
-
-### Limpar os arquivos gerados
-
-```bash
-make clean
+```text
+EDA_Trabalho01/
+├── bin/                     # Contém o executável final gerado após a compilação do projeto.
+│   └── program.exe           
+├── build/                   # Armazena os arquivos objetos produzidos durante o processo de compilação.
+│   ├── main.o
+│   ├── parser.o
+│   └── ppersistent_bst.o
+├── include/                 # Contém os arquivos de cabeçalho utilizados no projeto.
+│   ├── parser.h
+│   └── ppersistent_bst.h
+├── input/                   # Contém os arquivos de entrada utilizados para testes e execução do programa.   
+├── output/                  # Contém os arquivos de saída gerados pela execução do programa.
+├── src/                     # Contém os arquivos-fonte responsáveis pela implementação do projeto.
+│   ├── main.c
+│   ├── parser.c
+│   └── ppersistent_bst.c
+├── Makefile                 # Arquivo responsável pela automação do processo de compilação do projeto.
+└── README.md                # Documento contendo informações gerais sobre o projeto, compilação, execução e organização do repositório.
 ```
 
 ---
 
-## Formato do arquivo de entrada (atualizar)
+## Como compilar e executar
+
+### Compilação
+
+O `Makefile` presente nesse projeto já cuida dessa extensa etapa, bastando apenas executar:
+
+```bash
+make build
+```
+
+Isso gera os executáveis auxiliares na pasta `build\`, bem como o próprio programa final `program.exe` na pasta `bin\`.
+
+### Execução
+
+Com o código já compilado, basta executar:
+
+```bash
+make run
+```
+
+A qual irá rodar o programa sobre o arquivo de exemplo presente em `input\`. Caso deseje rodar sobre um outro arquivo de entrada, basta inserir o arquivo na pasta e então executar:
+
+```bash
+make run INPUT=<arquivo_com_operações_na_PPBST.txt>
+```
+
+---
+
+## Formato do arquivo de entrada
 
 O arquivo de entrada é um `.txt` com **uma operação por linha**:
 
-| Operação | Formato        | Descrição                                                             | Saída                                              |
-|----------|----------------|-----------------------------------------------------------------------|----------------------------------------------------|
-| Inserção | `INC <valor>`  | Insere o inteiro na árvore. Duplicatas são permitidas.                | Nenhuma                                            |
-| Remoção  | `REM <valor>`  | Remove o nó com aquele valor. Se inexistente, nada acontece.          | Nenhuma                                            |
-| Sucessor | `SUC <valor>`  | Encontra o menor valor da árvore estritamente maior que `<valor>`.    | Linha 1: `SUC <valor>` / Linha 2: resultado        |
-| Imprimir | `IMP`          | Imprime todos os elementos em ordem crescente com sua profundidade.   | Linha 1: `IMP` / Linha 2: `val,prof val,prof ...` |
+| Operação | Formato                | Descrição                                                                                                                   | Saída                                             |
+|----------|------------------------|-----------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------|
+| Inserção | `INC <valor>`          | Insere o inteiro na árvore, criando uma nova versão da estrutura. Duplicatas são permitidas.                                | Nenhuma                                           |
+| Remoção  | `REM <valor>`          | Remove o nó com aquele valor, criando uma nova versão da estrutura. Se inexistente, a nova versão será idêntica a anterior. | Nenhuma                                           |
+| Sucessor | `SUC <valor> <versão>` | Encontra o menor valor da árvore estritamente maior que `<valor>` na versão `<versão>`.                                     | Linha 1: `SUC <valor>` / Linha 2: resultado       |
+| Imprimir | `IMP` `<versão>`       | Imprime todos os elementos da estrutura na versão `<versão>` em ordem crescente com sua profundidade.                       | Linha 1: `IMP` / Linha 2: `val,prof val,prof ...` |
 
-> **Nota sobre `SUC`:** O valor de referência **não precisa** existir na árvore. Caso não exista sucessor, é impresso `NULL`. (atualizar para INF)
+> **Nota sobre `SUC`:** O valor de referência **não precisa** existir na árvore. Caso não exista sucessor, é impresso `INF`.
 
 > **Nota sobre `IMP`:** A profundidade da raiz é **0**. O separador entre elementos é um espaço simples.
 
 ---
 
-## Estruturas de dados
+## Divisão dos módulos do projeto
 
-### `Node` — `bst.h`
+O projeto é separado em 2 módulos especiais (`parser.h` e `ppersistent_bst.h`) juntamente de um arquivo `main.c`.
 
-Representa um único nó da árvore.
+### Módulo `parser.h`
+
+Módulo responsável pela leitura e processamento das operações passadas via um arquivo de entrada localizado no diretório `input\`. Das funções presentes no módulo, tem-se:
+
+| Função          | Assinatura                                                | Arquivo    | Descrição |
+|-----------------|-----------------------------------------------------------|------------|-----------|
+| `parse_and_run` | `int parse_and_run(char *filename, PPersistentBST *tree)` | `parser.c` | Abre o arquivo, lê linha a linha e despacha cada operação para o módulo `ppersistent_bst`. Retorna `0` em sucesso ou `1` em erro de abertura do arquivo de entrada. |
+
+---
+
+### Módulo `ppersistent_bst.h`
+
+Módulo responsável pela criação, manuntenção e limpeza de uma árvore binária de busca com persistência parcial, além disso, permite realizar as operações de consulta e atualização sobre a estrutura.
+
+#### `Field`
+
+Enumerate responsável por mapear os possíveis campos que podem serem alterados em uma árvore de busca convencional.
 
 ```c
-typedef struct Node {
-    int value;          // Valor inteiro armazenado
-    struct Node *left;  // Filho esquerdo (valores menores)
-    struct Node *right; // Filho direito  (valores maiores)
-} Node;
+typedef enum {
+    NONE,
+    LEFT,
+    RIGHT,
+    VALUE,
+    ROOT
+} Field;
 ```
 
-### `BST` — `bst.h`
+#### `Node`
 
-Contêiner que encapsula o ponteiro para a raiz. Permite que funções modifiquem a raiz sem precisar retornar ponteiros adicionais.
+Registro responsável por representar um único nó persistente da árvore.
+
+```c
+struct Node {
+    Node *left;        // Filho esquerdo
+    Node *right;       // Filho direito 
+    int value;         // Valor do nó (chave)
+    int born_version;  // Versão que o nó foi criado
+    int is_root;       // Flag usada para especificar se o nó é raíz da árvore                                 
+    Mod mods[2];       // Vetor de modificações
+};
+```
+
+#### `PPersistentBST`
+
+Contêiner que encapsula informações essenciais para o versionamento parcial da estrutura. Apresenta de forma rápida informações à respeito da versão atual da estrutura bem como um vetor auxiliar contendo todos os nós da estrutura, essencial para gerenciamento eficiente de memória.
 
 ```c
 typedef struct {
-    Node *root; // Ponteiro para o nó raiz
-} BST;
+    Node *live_root;                // Raíz ativa (versão mais recente)
+    Node *node_pool[MAX_VERSIONS];  // Pool de nós utilizados pela árvore (necessário para liberação de memória)
+    int node_count;                 // Quantidade de nós da estrutura
+    Node *versions[MAX_VERSIONS];   // version[i] representa a raíz na versão i
+    int version_count;              // Quantidade de versões criadas até o momento
+    int current_version;            // Versão atual da estrutura (mais recente)
+} PPersistentBST;
 ```
 
----
+Funções disponíveis ao usuário do módulo:
 
-## Funções (atualizar)
+| Função                | Assinatura                                                           | Arquivo             | Descrição                                                                                  |
+|-----------------------|----------------------------------------------------------------------|---------------------|--------------------------------------------------------------------------------------------|
+| `ppbst_init`          | `void ppbst_init(PPersistentBST *tree)`                              | `ppersistent_bst.c` | Inicializa os campos de uma PPBST vazia.                                                   |
+| `ppbst_insert`        | `void ppbst_insert(PPersistentBST *tree, int value)`                 | `ppersistent_bst.c` | Cria uma nova versão da estrutura e insere o nó de valor `value`.                          |
+| `ppbst_remove`        | `void ppbst_remove(PPersistentBST *tree, int value)`                 | `ppersistent_bst.c` | Cria uma nova versão da estrutura e remove o nó com o valor `value`.                       |
+| `ppbst_successor`     | `void ppbst_successor(PPersistentBST *tree, int value, int version)` | `ppersistent_bst.c` | Imprime no terminal o valor do nó com o menor valor estritamente maior que `value`, ou `INF` em caso desse não existir. |
+| `ppbst_print_inorder` | `void ppbst_print_inorder(PPersistentBST *tree, int version)`        | `ppersistent_bst.c` | Imprime **valor,profundidade** de cada nó da estrutura numa dada versão em ordem crescente de valor.                  |
+| `ppbst_destroy`       | `void ppbst_destroy(PPersistentBST *tree)`                           | `ppersistent_bst.c` | Desaloca a memória utilizada através do pool de nós da estrutura.                                      |
 
-### Módulo `bst.c` / `bst.h`
+Funções auxiliares (`static`, não são expostas no header!) criadas com o intuito de simplificar os algoritmos principais e propiciar maior facilidade de manuntenção do projeto:
 
-| Função | Assinatura | Arquivo | Descrição |
-|--------|-----------|---------|-----------|
-| `bst_init` | `void bst_init(BST *tree)` | `bst.c` | Inicializa uma BST vazia (`root = NULL`). |
-| `bst_insert` | `void bst_insert(BST *tree, int value)` | `bst.c` | Insere um valor respeitando a propriedade BST. Duplicatas são ignoradas. |
-| `bst_remove` | `void bst_remove(BST *tree, int value)` | `bst.c` | Remove o nó com o valor dado. Trata os três casos clássicos (folha, um filho, dois filhos). |
-| `bst_successor` | `Node *bst_successor(const BST *tree, int value)` | `bst.c` | Retorna o nó com o menor valor estritamente maior que `value`, ou `NULL`. |
-| `bst_print_inorder` | `void bst_print_inorder(const BST *tree)` | `bst.c` | Imprime `valor,profundidade` de cada nó em ordem crescente. |
-| `bst_destroy` | `void bst_destroy(BST *tree)` | `bst.c` | Libera toda a memória da árvore (travessia pós-ordem). |
-
-#### Funções internas (static — não expostas no header)
-
-| Função | Arquivo | Descrição |
-|--------|---------|-----------|
-| `node_create` | `bst.c` | Aloca e inicializa um novo nó. |
-| `node_insert` | `bst.c` | Inserção recursiva em subárvore. |
-| `node_min` | `bst.c` | Encontra o nó de menor valor (extremo esquerdo). |
-| `node_remove` | `bst.c` | Remoção recursiva em subárvore. |
-| `node_print_inorder` | `bst.c` | Travessia in-order recursiva com impressão. |
-| `node_successor` | `bst.c` | Busca recursiva do sucessor com rastreamento de candidato. |
-| `node_destroy` | `bst.c` | Liberação recursiva de subárvore (pós-ordem). |
-
----
-
-### Módulo `parser.c` / `parser.h`
-
-| Função | Assinatura | Arquivo | Descrição |
-|--------|-----------|---------|-----------|
-| `parse_and_run` | `int parse_and_run(const char *filename, BST *tree)` | `parser.c` | Abre o arquivo, lê linha a linha e despacha cada operação para o módulo `bst`. Retorna `0` em sucesso ou `1` em erro de abertura. |
+| Função                | Arquivo             | Descrição                                                                                                       |
+|-----------------------|---------------------|-----------------------------------------------------------------------------------------------------------------|
+| `node_new`            | `ppersistent_bst.c` | Aloca e inicializa um novo nó.                                                                                  |
+| `set_node_by_version` | `ppersistent_bst.c` | Aplica as modificações até uma certa versão no nó passado por referência.                                       |
+| `insert_mod`          | `ppersistent_bst.c` | Inseri um campo de modificação no nó.                                                                           |
+| `node_copying`        | `ppersistent_bst.c` | Cria um novo nó apartir de um antigo, com os campos de modificações todos aplicados no nó novo.                 |
+| `ppbst_search_parent` | `ppersistent_bst.c` | Busca pelo pai do nó.                                                                                           |
+| `find_min`            | `ppersistent_bst.c` | Busca pelo nó com o menor valor numa dada sub-árvore numa dada versão.                                          |
+| `find_successor`      | `ppersistent_bst.c` | Busca pelo nó sucessor de um valor em uma dada versão.                                                          |
+| `transplant`          | `ppersistent_bst.c` | Função auxiliar no algoritmo de remoção em uma BST convencional, adaptada pro contexto de persistência parcial. |
+| `node_print_inorder`  | `ppersistent_bst.c` | Função auxiliar na impressão da árvore.                                                                         |
 
 ---
 
 ### `main.c`
 
-Contém apenas a função `main`, que:
-1. Valida que exatamente um argumento foi passado (caminho do arquivo).
-2. Inicializa a BST com `bst_init`.
-3. Chama `parse_and_run` para processar o arquivo.
-4. Libera os recursos com `bst_destroy`.
-5. Retorna `EXIT_SUCCESS` ou `EXIT_FAILURE` conforme o resultado.
+Ponto de entrada do programa. Responsável por realizar a leitura do arquivo de entrada passada como argumento, inicializar uma PPBST através da chamada de `ppbst_init`, passar o controle do processamento das operações ao parser através de `parser_and_run` e, por fim, liberar os recursos alocados via `ppbst_destroy`.
 
 ---
 
 ## Exemplo de uso
 
-Dado o arquivo `input.txt`:
+Dado o arquivo `input\input_persistent_extense.txt`, a qual contém as operações sobre a PPBST:
 
-```
+```text
 INC 50
-INC 42
-INC 65
-INC 13
-INC 52
-IMP
-SUC 50
-REM 42
-IMP
-SUC 60
+INC 50
+INC 50
+IMP 2
+SUC 50 2
 REM 50
-IMP
+IMP 3
+IMP 2
+REM 50
+IMP 4
+IMP 2
+REM 50
+IMP 5
+IMP 2
+INC 10
+INC 20
+INC 30
+INC 40
+INC 50
+IMP 10
+SUC 35 10
+SUC 50 10
+REM 30
+IMP 11
+IMP 10
+SUC 30 11
+SUC 30 10
+INC 100
+INC 200
+INC 300
+REM 200
+IMP 15
+IMP 14
+SUC 200 14
+SUC 200 15
+SUC 150 15
+REM 100
+REM 300
+IMP 17
+IMP 15
+INC 50
+INC 30
+INC 70
+INC 20
+INC 40
+INC 60
+INC 80
+REM 50
+IMP 24
+IMP 23
+SUC 39 24
+SUC 40 24
+SUC 80 24
+SUC 80 23
 ```
 
-Saída esperada:
+Temos como saída retornada:
 
 ```
-IMP
-13,2 42,1 50,0 52,2 65,1
-SUC 50
-52
-IMP
-13,2 50,0 52,1 65,1
-SUC 60
-65
-IMP
-13,1 52,0 65,1
+IMP 2
+50,0 50,1 50,2
+SUC 50 2
+INF
+IMP 3
+50,0 50,1
+IMP 2
+50,0 50,1 50,2
+IMP 4
+50,0
+IMP 2
+50,0 50,1 50,2
+IMP 5
+
+IMP 2
+50,0 50,1 50,2
+IMP 10
+10,0 20,1 30,2 40,3 50,4
+SUC 35 10
+40
+SUC 50 10
+INF
+IMP 11
+10,0 20,1 40,2 50,3
+IMP 10
+10,0 20,1 30,2 40,3 50,4
+SUC 30 11
+40
+SUC 30 10
+40
+IMP 15
+10,0 20,1 40,2 50,3 100,4 300,5
+IMP 14
+10,0 20,1 40,2 50,3 100,4 200,5 300,6
+SUC 200 14
+300
+SUC 200 15
+300
+SUC 150 15
+300
+IMP 17
+10,0 20,1 40,2 50,3
+IMP 15
+10,0 20,1 40,2 50,3 100,4 300,5
+IMP 24
+10,0 20,1 20,4 30,3 40,2 40,4 50,3 50,4 60,6 70,5 80,6
+IMP 23
+10,0 20,1 20,4 30,3 40,2 40,4 50,3 50,4 60,6 70,5
+SUC 39 24
+40
+SUC 40 24
+50
+SUC 80 24
+INF
+SUC 80 23
+INF
 ```
 
 > A profundidade de cada nó pode variar conforme a ordem de inserção e remoções anteriores.
