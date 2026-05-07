@@ -8,20 +8,6 @@
 #define MAX_LINE 256
  
 int parse_and_run(char *filename, PPersistentBST *tree){
-/*
- * Realiza o parsing das operações passadas no arquivo de entrada sobre a árvore passada. Realiza as seguintes operações:
- * 1. Abre o arquivo de entrada;
- * 2. Lê linha; 
- * 3. Executa operação (se for válida) sobre a PPBST fornecida;
- * 4. Repete os passos 2 e 3 até chegar no fim de arquivo.
- *
- * Params:
- *   filename (char*): Caminho do arquivo de entrada;
- *   tree (BST*): Ponteiro para a BST.
- *
- * Returns:
- *   (int): 0 caso o arquivo tenha sido lido com sucesso, 1 caso contrário.
-*/
     char line[MAX_LINE];
     FILE *fp = fopen(filename, "r");
  

@@ -51,16 +51,16 @@ static Node *insert_mod(PPersistentBST *tree, Node *node, Mod new_mod);
 static Node *node_copying(PPersistentBST *tree, Node *node, Mod new_mod);
 
 /* 
- * Busca pelo nó pai do nó cujo valor seja "value" na versão atual, NULL se não houver.
+ * Busca pelo nó pai do nó na versão atual, NULL se não houver.
  *
  * Params:
  *  tree (PPersistentBST*): PPBST a qual se deseja procurar o nó pai;
- *  value (int): Valor do nó a qual se deseja localizar o pai.
+ *  target (Node*): Nó a qual se deseja localizar o pai.
  * 
  * Returns:
  *  (Node*): Nó pai procurado (ou NULL).
 */
-static Node *ppbst_search_parent(PPersistentBST *tree, int value);
+static Node *ppbst_search_parent(PPersistentBST *tree, Node *target);
 
 /* 
  * Busca em tree pelo nó cujo valor seja o menor de todos. Necessário no algoritmo de remoção.
@@ -87,8 +87,33 @@ static Node *find_min(Node *subtree, int version);
 */
 static Node *find_successor(Node *versioned_root, int value, int version);
 
-static Node *transplant(PPersistentBST *tree, Node *ver_root, Node *u, Node *v, int base_ver, int new_ver);
+/* 
+ * Substitui (transplanta) o nó u por v dentro da versão base, reconstruindo todos os ancestrais de u como cópias físicas para não contaminar versões antigas.
+ * Retorna a nova raíz da árvore transplantada.
+ * 
+ * Params:
+ * 
+ *  tree (PPersistentBST): Árvore a qual está sendo feito o processo de remoção de u;
+ *  versioned_root (Node*): Raíz da árvore na versão base;
+ *  u (Node*): Nó a ser removido;
+ *  v (Node*): Nó a ser colocado no lugar de u;
+ *  base_version (int): Versão base (antes da remoção);
+ *  new_version (int): Versão nova (após a remoção).
+ * 
+ * Returns:
+ *  (Node*): Nó v já transplantado.
+ */
+static Node *transplant(PPersistentBST *tree, Node *versioned_root, Node *u, Node *v, int base_version, int new_version);
 
+/* 
+ * Função recursiva auxiliar responsável por imprimir o valor do nó juntamente com sua profundidade seguindo um percuso em-ordem (nós impressos ordenadamente).
+ * 
+ * Params:
+ *  node (Node*): Nó a qual se deseja realizar a impressão;
+ *  version (int): Versão de interesse;
+ *  depth (int): Profundidade associada ao nó;
+ *  first (int*): Flag responsável por separar o resultado da impressão dos pares "value,depth".
+*/
 static void node_print_inorder(Node *node, int version, int depth, int *first);
 
 /* Funções principais da PPBST (disponíveis ao usuário da lib "ppersistent_bst.h")*/
@@ -159,8 +184,7 @@ static Node *node_copying(PPersistentBST *tree, Node *node, Mod new_mod){
     copy->born_version = new_mod.version;
 
     // Atualização do filho do pai do nó node, pois agora seu filho é copy! (se houver)
-    // Corrigir possível falha!!!!! (necessário uso de return pointer)
-    Node *parent = ppbst_search_parent(tree, node->value);
+    Node *parent = ppbst_search_parent(tree, node);
     if (parent){
         Field side = (copy->value < parent->value) ? LEFT : RIGHT;
         Mod up_mod = {new_mod.version, side, -1, copy};
@@ -198,29 +222,16 @@ static Node *insert_mod(PPersistentBST *tree, Node *node, Mod new_mod){
     return node_copying(tree, node, new_mod);
 }
 
-static Node *ppbst_search_parent(PPersistentBST *tree, int value){
+static Node *ppbst_search_parent(PPersistentBST *tree, Node *target){
     if (tree->current_version < 0 || !tree->live_root) return NULL;
 
-    Node *current = node_new(tree->live_root->left, tree->live_root->right, tree->live_root->value, tree->live_root->born_version, tree->live_root->is_root);
-    Node *parent = NULL;
+    Node *current = tree->live_root;
     while(current){
         Node tmp;
         set_node_by_version(current, &tmp, tree->current_version);
-
-        if(value < tmp.value){
-            if (!tmp.left){free(current); return NULL;}
-            parent = current;
-            current = tmp.left;
-        } else if (value > tmp.value){
-            if (!tmp.right){free(current); return NULL;}
-            parent = current;
-            current = tmp.right;
-        } else {
-            free(current);
-            return parent;
-        }
+        if (tmp.left == target || tmp.right == target) return current;
+        current = (target->value < tmp.value) ? tmp.left : tmp.right;
     }
-    free(current);
     return NULL;
 }
 
@@ -252,46 +263,37 @@ static Node *find_successor(Node *versioned_root, int value, int version){
     return candidate;
 }
 
-/* (TO BE FIXED!)
- * Substitui o nó u por v dentro da versão base, reconstruindo todos os
- * ancestrais de u como cópias físicas para não contaminar versões antigas.
- * Retorna a nova raiz da árvore reconstruída.
- */
-static Node *transplant(PPersistentBST *t, Node *ver_root, Node *u, Node *v, int base_ver, int new_ver){
-    if (ver_root == u) return v;   /* u era a raiz — v assume o lugar */
+static Node *transplant(PPersistentBST *tree, Node *versioned_root, Node *u, Node *v, int base_version, int new_version){
+    // u era raíz -> v troca de lugar com u
+    if (versioned_root == u) return v;
 
-    /* Coleta o caminho da raiz até u (exclusive). */
-    Node  *path[MAX_VERSIONS];
-    int    path_len = 0;
-    Node  *cur = ver_root;
+    // Caminho da raíz até u
+    Node *path[MAX_VERSIONS];
+    int path_len = 0;
+    Node *current = versioned_root;
 
-    while (cur && cur != u) {
-        path[path_len++] = cur;
+    while (current && current != u) {
+        path[path_len++] = current;
         Node tmp;
-        set_node_by_version(cur, &tmp, base_ver);
-        cur = (u->value < tmp.value) ? tmp.left : tmp.right;
+        set_node_by_version(current, &tmp, base_version);
+        current = (u->value < tmp.value) ? tmp.left : tmp.right;
     }
-    if (!cur) return ver_root;  /* u não encontrado — segurança */
+    if (!current) return versioned_root;
 
-    /* Reconstrói o caminho de baixo para cima. */
     Node *child_substitute = v;
-
+    // Reconstrução do caminho
     for (int i = path_len - 1; i >= 0; i--) {
         Node *orig = path[i];
         Node  tmp_orig;
-        set_node_by_version(orig, &tmp_orig, base_ver);
+        set_node_by_version(orig, &tmp_orig, base_version);
 
-        /* Qual filho estava no caminho para u? */
+        // Qual filho estava no caminho para u?
         Node *child_in_path = (i + 1 < path_len) ? path[i + 1] : u;
+        Node *copy = node_new(tmp_orig.left, tmp_orig.right, tmp_orig.value, new_version, 0);
+        tree->node_pool[tree->node_count++] = copy;
 
-        Node *copy = node_new(tmp_orig.left, tmp_orig.right,
-                              tmp_orig.value, new_ver, 0);
-        t->node_pool[t->node_count++] = copy;
-
-        if (tmp_orig.left == child_in_path)
-            copy->left = child_substitute;
-        else
-            copy->right = child_substitute;
+        if (tmp_orig.left == child_in_path) copy->left = child_substitute;
+        else copy->right = child_substitute;
 
         child_substitute = copy;
     }
@@ -325,104 +327,99 @@ void ppbst_init(PPersistentBST *tree){
 }
 
 void ppbst_insert(PPersistentBST *tree, int value){
-    int new_ver = tree->current_version + 1;
-    Node *new_node = node_new(NULL, NULL, value, new_ver, 0);
+    int new_version = tree->current_version + 1;
+    // Nó a ser inserido na nova versão da estrutura
+    Node *new_node = node_new(NULL, NULL, value, new_version, 0);
     tree->node_pool[tree->node_count++] = new_node;
 
-    /* Primeiro nó ever: ele é a raiz. */
+    // Primeiro nó inserido na esturutra (raíz)
     if (tree->current_version < 0) {
         new_node->is_root = 1;
-        tree->live_root      = new_node;
+        tree->live_root = new_node;
         tree->versions[tree->version_count++] = new_node;
-        tree->current_version = new_ver;
+        tree->current_version = new_version;
         return;
     }
 
-    /* Desce pela árvore na versão corrente para achar o pai. */
-    Node *cur    = tree->versions[tree->current_version];
+    // Localização da posição correta de inserção do nó
+    // Raíz atual
+    Node *current = tree->versions[tree->current_version]; 
     Node *parent = NULL;
 
-    while (cur) {
-        parent = cur;
+    while (current){
+        parent = current;
         Node tmp;
-        set_node_by_version(cur, &tmp, tree->current_version);
-        cur = (value < tmp.value) ? tmp.left : tmp.right;
+        set_node_by_version(current, &tmp, tree->current_version);
+        current = (value < tmp.value) ? tmp.left : tmp.right;
     }
 
-    /* Registra a modificação no pai. */
+    // Registra a modificação no pai
     Node tmp_parent;
     set_node_by_version(parent, &tmp_parent, tree->current_version);
     Field side = (value < tmp_parent.value) ? LEFT : RIGHT;
 
-    Mod m = { new_ver, side, -1, new_node };
+    Mod m = {new_version, side, -1, new_node};
     insert_mod(tree, parent, m);
 
     tree->versions[tree->version_count++] = tree->live_root;
-    tree->current_version = new_ver;
+    tree->current_version = new_version;
 }
 
 void ppbst_remove(PPersistentBST *tree, int value){
-    int base_ver = tree->current_version;
+    int base_version = tree->current_version;
 
-    /* Árvore vazia: registra versão nula. */
-    if (base_ver < 0) {
+    // Estrutura vazia -> Cópia da versão nula
+    if (base_version < 0) {
         tree->current_version++;
         tree->versions[tree->version_count++] = NULL;
         tree->live_root = NULL;
         return;
     }
 
-    /* Localiza o nó alvo. */
-    Node *ver_root = tree->versions[base_ver];
-    Node *target   = ver_root;
+    // Busca pelo nó a ser removido
+    Node *versioned_root = tree->versions[base_version];
+    Node *target = versioned_root;
 
-    while (target) {
+    while(target){
         Node tmp;
-        set_node_by_version(target, &tmp, base_ver);
+        set_node_by_version(target, &tmp, base_version);
         if (value == tmp.value) break;
         target = (value < tmp.value) ? tmp.left : tmp.right;
     }
 
-    int new_ver = ++tree->current_version;
+    int new_version = ++tree->current_version;
 
-    /* Chave não encontrada: nova versão idêntica à anterior. */
+    // Nó não encontrado -> Nova versão idêntica à anterior
     if (!target) {
-        tree->versions[tree->version_count++] = ver_root;
-        tree->live_root = ver_root;
+        tree->versions[tree->version_count++] = versioned_root;
+        tree->live_root = versioned_root;
         return;
     }
 
-    Node tmp_target;
-    set_node_by_version(target, &tmp_target, base_ver);
-
     Node *new_root;
+    Node tmp_target;
+    set_node_by_version(target, &tmp_target, base_version);
 
-    /* Caso 1/2: sem filho direito ou sem filho esquerdo. */
-    if (!tmp_target.right) {
-        new_root = transplant(tree, ver_root, target, tmp_target.left,
-                              base_ver, new_ver);
-    } else if (!tmp_target.left) {
-        new_root = transplant(tree, ver_root, target, tmp_target.right,
-                              base_ver, new_ver);
+    // Caso 1/2: Sem filho direito ou sem filho esquerdo. 
+    if (!tmp_target.right){
+        new_root = transplant(tree, versioned_root, target, tmp_target.left, base_version, new_version);
+    } else if (!tmp_target.left){
+        new_root = transplant(tree, versioned_root, target, tmp_target.right, base_version, new_version);
     } else {
-        /* Caso 3: dois filhos — substitui pelo sucessor in-order. */
-        Node *succ = find_min(tmp_target.right, base_ver);
-        Node  tmp_succ;
-        set_node_by_version(succ, &tmp_succ, base_ver);
+        // Caso 3: Nó com dois filhos -> Substituição pelo menor nó da subárvore direita (sucessor).
+        Node *successor = find_min(tmp_target.right, base_version);
+        Node  tmp_successor;
+        set_node_by_version(successor, &tmp_successor, base_version);
 
-        /* Remove o sucessor de sua posição original na subárvore direita. */
-        Node *new_right = transplant(tree, tmp_target.right, succ,
-                                     tmp_succ.right, base_ver, new_ver);
+        // Remove o sucessor de sua posição original na subárvore direita.
+        Node *new_right = transplant(tree, tmp_target.right, successor, tmp_successor.right, base_version, new_version);
 
-        /* Cria um novo nó com a chave do sucessor assumindo o lugar do alvo. */
-        Node *replacement = node_new(tmp_target.left, new_right,
-                                     tmp_succ.value, new_ver, 0);
+        // Cria um novo nó com o valor igual ao do sucessor, assumindo o lugar do nó target
+        Node *replacement = node_new(tmp_target.left, new_right, tmp_successor.value, new_version, 0);
         tree->node_pool[tree->node_count++] = replacement;
 
-        new_root = transplant(tree, ver_root, target, replacement,
-                              base_ver, new_ver);
+        new_root = transplant(tree, versioned_root, target, replacement, base_version, new_version);
     }
-
     tree->versions[tree->version_count++] = new_root;
     tree->live_root = new_root;
 }
