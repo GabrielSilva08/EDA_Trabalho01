@@ -320,8 +320,8 @@ static void node_print_inorder(Node *node, int version, int depth, int *first){
 void ppbst_init(PPersistentBST *tree){
     tree->live_root = NULL;
     tree->node_count   = 0;
-    tree->version_count = 0;
-    tree->current_version  = -1;
+    tree->version_count = 1;
+    tree->current_version  = 0;
     memset(tree->node_pool, 0, sizeof(tree->node_pool));
     memset(tree->versions,  0, sizeof(tree->versions));
 }
